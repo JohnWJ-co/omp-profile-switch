@@ -1,0 +1,12 @@
+node_modules/
+bun.lock
+bun.lockb
+package-lock.json
+yarn.lock
+.DS_Store
+*.log
+
+# 本地配置档案快照（含个人模型配置，不要提交）
+profiles/
+*.pre-switch.bak
+config.yml

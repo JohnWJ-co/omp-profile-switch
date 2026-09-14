@@ -1,0 +1,22 @@
+{
+  "name": "omp-profile-switch",
+  "version": "1.0.0",
+  "description": "omp 配置档案（profile）切换扩展：把 config.yml 快照为命名档案，一键切换，主模型即时生效",
+  "type": "module",
+  "files": [
+    "src"
+  ],
+  "omp": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "keywords": [
+    "omp",
+    "oh-my-pi",
+    "extension",
+    "profile",
+    "config"
+  ],
+  "license": "MIT"
+}
