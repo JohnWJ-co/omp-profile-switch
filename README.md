@@ -21,6 +21,7 @@ omp 的模型配置（默认模型、思考等级、子代理模型覆盖等）�
 - ⚡ **切换即时生效**：切换后自动把目标档案的默认模型 + 思考等级套用到当前会话（子代理等角色重启后完整生效）
 - 🔄 **双向回写**：切换时自动保存当前配置，两套档案永不互相覆盖
 - 🧭 **循环切换**：`/profile next` 在所有档案间轮转
+- 🚀 **启动自动对齐**：新会话（重启 / `/restart`）时自动把档案默认模型套用当前会话，不再被 omp"上次手工选的模型"恢复覆盖；模型发现未完成会自动重试（最长约 20s）
 - 🩺 **漂移检测**：启动时发现 config.yml 与当前档案不一致（比如在 TUI 里手动选过模型）会给出提示
 - 🛟 **兜底备份**：每次切换前把 config.yml 备份到 `config.yml.pre-switch.bak`
 - 🤖 **可被代理调用**：注册 `switch_profile` 工具，直接说"切换到工作日配置"也行
@@ -123,9 +124,18 @@ extensions:
 3. 把档案 X 的内容写入 `config.yml`，更新 `.active` 标记
 4. 解析档案 X 的 `modelRoles.default`（格式 `provider/model:思考等级`），通过 `pi.setModel()` / `pi.setThinkingLevel()` **即时套用到当前会话** —— 这一步只影响当前会话，不会写回配置文件
 
-### 漂移检测
+### 漂移检测与启动自动对齐
 
-在 TUI 里手动选模型是 omp 的原生行为，会立刻写回 `config.yml`（`modelRoleStorage: global`），导致 config.yml 与当前档案出现"漂移"。本扩展在会话启动时检测到漂移会给出警告，执行 `/profile switch <当前档案>` 即可重新对齐。漂移不是错误：下次切换时漂移内容会作为"当前配置"归档进当时的档案（快照语义）。
+在 TUI 里手动选模型是 omp 的原生行为，会立刻写回 `config.yml`（`modelRoleStorage: global`），导致 config.yml 与当前档案出现"漂移"。漂移不是错误：下次切换时漂移内容会作为"当前配置"归档进当时的档案（快照语义）。
+
+omp 在重启 / 开新会话时倾向于**恢复"上次手工选择的模型"**，这可能让切档案后默认模型仍是旧模型（例如"全部hy4"档案指纹正确写入 `default: codebuddy/hy4-preview`，重启后却落在上次手动选的 Google Gemini 上）。为此本扩展在新会话（`startup` / `new`）启动时**自动把档案的 `modelRoles.default` 套用到当前会话**：
+
+- 目标模型已在注册表 → 立即 `setModel` + `setThinkingLevel`
+- 暂未在注册表（provider 模型发现未完成）→ 每 2s 重试，最长约 20s，成功即对齐
+- 首个回合前再做一次兜底对齐，确保会话就绪后模型正确
+- `resume` / `fork`（恢复历史会话）不干预，尊重会话本身携带的模型
+
+这样每次切档案后，主模型在新会话里都能稳定落在档案默认上。
 
 ## 注意事项
 
@@ -168,6 +178,9 @@ omp plugin unlink omp-profile-switch   # 或删除 ~/.omp/plugins/ 下对应条�
 
 **Q：/profile switch 提示"已处于档案 X，无需切换"？**
 当前生效档案就是 X。先 `switch` 到别的档案，或用 `/profile save` 把现在的配置快照为新档案。
+
+**Q：重启后默认模型还是之前手动选的模型？**
+新会话会由"启动自动对齐"自动套用当前档案的默认模型（最长约 20s 内）。若仍不对，用 `/profile list` 确认当前生效档案，并确认目标模型在 `/model` 注册表中存在。
 
 **Q：想恢复某次切换前的配置？**
 每次切换前都有 `~/.omp/agent/config.yml.pre-switch.bak`，直接拷回去即可。
