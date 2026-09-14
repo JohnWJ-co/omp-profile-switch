@@ -253,7 +253,6 @@ let startupModelRetries = 0;
 async function applyProfileModelWithRetry(api: ProfileSwitchApi, ctx: ExtCtx, name: string): Promise<void> {
 	try {
 		const msg = await applyProfileModel(api, ctx, name);
-		console.log(`[profile-switch] apply(${name}) -> ${(msg || "(empty)").slice(0, 160)}`);
 		if (msg.includes("暂不在注册表") || msg.includes("下一回合会自动对齐")) {
 			// 模型发现尚未完成或当前忙碌：稍后重试（最长约 10×2s）
 			if (startupModelRetries < 10) {
@@ -440,12 +439,9 @@ async function interactiveRoot(api: ProfileSwitchApi, ctx: ExtCtx): Promise<void
 }
 
 export default function profileSwitch(pi: ProfileSwitchApi): void {
-	console.log("[profile-switch] factory start");
 	let loadedOk = false;
 	try {
 		loadedOk = typeof pi?.registerCommand === "function" && typeof pi?.on === "function";
-	} catch (e) { console.log("[profile-switch] factory health err:", String(e)); }
-	console.log("[profile-switch] factory health: registerCommand=" + (typeof pi?.registerCommand) + " on=" + (typeof pi?.on) + " loadedOk=" + loadedOk);
 	pi.registerCommand("profile", {
 		description: "切换 omp 配置档案（config.yml 快照）",
 		getArgumentCompletions: (prefix: string) => {
@@ -485,7 +481,6 @@ export default function profileSwitch(pi: ProfileSwitchApi): void {
 	pi.on("session_start", (event, ctx) => {
 		alignedCurrentSession = false;
 		// 诊断：打印所有 session_start reason；对齐仅在非恢复场景执行
-		console.log(`[profile-switch] session_start reason=${String(event.reason)} hasUI=${!!ctx.hasUI}`);
 		if (event.reason === "resume" || event.reason === "fork") return;
 		try {
 			const active = readActive();
@@ -499,10 +494,8 @@ export default function profileSwitch(pi: ProfileSwitchApi): void {
 				startupModelRetries = 0; // 每次重启重置重试计数
 				void applyProfileModelWithRetry(pi, ctx, active);
 			} else {
-				console.log(`[profile-switch] skip align: active=${String(active)} cfgExists=${existsSync(CONFIG_FILE)}`);
 			}
 		} catch (e) {
-			console.log(`[profile-switch] session_start err: ${(e as Error).message}`);
 		}
 	});
 
