@@ -439,9 +439,6 @@ async function interactiveRoot(api: ProfileSwitchApi, ctx: ExtCtx): Promise<void
 }
 
 export default function profileSwitch(pi: ProfileSwitchApi): void {
-	let loadedOk = false;
-	try {
-		loadedOk = typeof pi?.registerCommand === "function" && typeof pi?.on === "function";
 	pi.registerCommand("profile", {
 		description: "切换 omp 配置档案（config.yml 快照）",
 		getArgumentCompletions: (prefix: string) => {
@@ -480,7 +477,7 @@ export default function profileSwitch(pi: ProfileSwitchApi): void {
 	let alignedCurrentSession = false;
 	pi.on("session_start", (event, ctx) => {
 		alignedCurrentSession = false;
-		// 诊断：打印所有 session_start reason；对齐仅在非恢复场景执行
+		// 对齐仅在非恢复场景执行
 		if (event.reason === "resume" || event.reason === "fork") return;
 		try {
 			const active = readActive();
@@ -493,9 +490,9 @@ export default function profileSwitch(pi: ProfileSwitchApi): void {
 			if (active && existsSync(CONFIG_FILE)) {
 				startupModelRetries = 0; // 每次重启重置重试计数
 				void applyProfileModelWithRetry(pi, ctx, active);
-			} else {
 			}
-		} catch (e) {
+		} catch {
+			// 对齐失败不影响会话
 		}
 	});
 
