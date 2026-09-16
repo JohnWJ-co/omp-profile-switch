@@ -30,6 +30,9 @@ interface ExtCtx {
 	mode: string;
 	isIdle?: () => boolean;
 	modelRegistry?: { find(provider: string, modelId: string): unknown };
+	sessionManager?: {
+		getHeader?(): { parentSession?: string } | undefined;
+	};
 }
 
 interface ProfileSwitchApi {
@@ -220,6 +223,14 @@ function parseModelRef(ref: string | undefined): { provider: string; modelId: st
 	const modelId = rest.slice(slash + 1);
 	if (!provider || !modelId) return null;
 	return { provider, modelId, level };
+}
+
+
+// 子代理（task 派生）会话：其 session header 带有 parentSession 标记（主会话没有）。
+// 子代理会话不套用档案默认模型，交给 task.agentModelOverrides / agent 定义自己的模型生效。
+function isSubagentSession(ctx: ExtCtx): boolean {
+	const header = ctx.sessionManager?.getHeader?.();
+	return Boolean(header?.parentSession);
 }
 
 // 把档案的默认模型（含思考等级）即时套用到当前会话；失败只提示，不影响文件切换
@@ -479,6 +490,8 @@ export default function profileSwitch(pi: ProfileSwitchApi): void {
 		alignedCurrentSession = false;
 		// 对齐仅在非恢复场景执行
 		if (event.reason === "resume" || event.reason === "fork") return;
+		// 子代理会话跳过：让其自身的 task.agentModelOverrides / agent 模型定义生效
+		if (isSubagentSession(ctx)) return;
 		try {
 			const active = readActive();
 			if (ctx.hasUI) {
@@ -500,6 +513,7 @@ export default function profileSwitch(pi: ProfileSwitchApi): void {
 	// 在新会话第一个回合前再对齐一次（成功后本会话不再重复执行）
 	pi.on("turn_start", (_event, ctx) => {
 		if (alignedCurrentSession) return;
+		if (isSubagentSession(ctx)) return;
 		try {
 			const active = readActive();
 			if (active && existsSync(CONFIG_FILE)) {
